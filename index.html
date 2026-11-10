@@ -1,0 +1,1700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Salary Budget & Net Worth Tracker</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Font: Plus Jakarta Sans / Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Phosphor Icons for crisp minimal icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+          },
+          colors: {
+            appBg: '#F3F4F6',
+            cardBg: '#FFFFFF',
+            darkHeader: '#1E232A',
+          },
+          boxShadow: {
+            'card': '0 2px 10px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.02)',
+            'card-hover': '0 8px 20px rgba(0,0,0,0.08)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Hide scrollbar for category pill row */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Smooth card transitions */
+    .account-card {
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .account-card:hover {
+      transform: translateY(-2px);
+    }
+    /* Masked value blur */
+    .masked-value {
+      filter: blur(8px);
+      user-select: none;
+      transition: filter 0.2s ease;
+    }
+  </style>
+</head>
+<body class="bg-[#2B2F38] md:py-8 font-sans antialiased text-gray-800 min-h-screen flex justify-center items-start">
+
+  <!-- Mobile Viewport Container / App Frame -->
+  <main class="w-full max-w-md bg-[#F4F5F7] min-h-screen md:min-h-[920px] md:rounded-[40px] shadow-2xl relative flex flex-col overflow-hidden pb-20">
+    
+    <!-- Top Floating Actions & Currency selector -->
+    <header class="px-5 pt-6 pb-2 flex justify-between items-center bg-[#F4F5F7]">
+      <div class="flex items-center space-x-2">
+        <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Finance Manager</span>
+        <button onclick="openSalaryModal()" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 flex items-center gap-1 transition">
+          <i class="ph-bold ph-chart-pie-slice"></i> Budget Plan
+        </button>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <!-- Currency dropdown -->
+        <select id="currencySelector" onchange="changeCurrency(this.value)" class="text-xs font-semibold bg-white border border-gray-200 text-gray-700 rounded-lg px-2 py-1 focus:outline-none cursor-pointer">
+          <option value="PHP">PHP (₱)</option>
+          <option value="USD">USD ($)</option>
+          <option value="EUR">EUR (€)</option>
+          <option value="GBP">GBP (£)</option>
+          <option value="JPY">JPY (¥)</option>
+          <option value="SGD">SGD (S$)</option>
+        </select>
+
+        <!-- Backup / Settings Menu button -->
+        <button onclick="openBackupModal()" class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-600 shadow-sm border border-gray-100 hover:bg-gray-50 active:scale-95" title="Backup & Restore Data">
+          <i class="ph-bold ph-gear text-sm"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Switcher: Accounts vs Daily Expenses -->
+    <div class="px-4 pt-1 pb-2">
+      <div class="grid grid-cols-2 bg-gray-200/80 p-1 rounded-2xl">
+        <button id="navTabAccounts" onclick="switchMainTab('accounts')" class="py-2 rounded-xl text-xs font-bold text-gray-600 transition flex items-center justify-center gap-1.5">
+          <i class="ph-bold ph-wallet"></i> Net Worth
+        </button>
+        <button id="navTabExpenses" onclick="switchMainTab('expenses')" class="py-2 rounded-xl text-xs font-bold bg-white text-gray-900 shadow-sm transition flex items-center justify-center gap-1.5">
+          <i class="ph-bold ph-receipt"></i> Daily Expenses
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN VIEW 1: Accounts & Net Worth View -->
+    <div id="accountsViewSection" class="hidden px-4 py-2 space-y-4 flex-grow">
+      <!-- Total Net Worth Header Card -->
+      <section class="bg-white rounded-3xl p-6 shadow-card border border-gray-100 flex justify-between items-center relative overflow-hidden">
+        <div>
+          <h2 class="text-sm font-semibold text-gray-500 tracking-tight">Total Net Worth</h2>
+          <div class="flex items-baseline space-x-1 mt-1">
+            <span id="totalBalance" class="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+              ₱0.00
+            </span>
+          </div>
+          <p id="totalAssetsCount" class="text-[11px] text-gray-400 mt-1 font-medium">8 accounts tracked</p>
+        </div>
+
+        <!-- Privacy Eye Toggle Icon -->
+        <button id="privacyToggleBtn" onclick="togglePrivacy()" class="w-12 h-12 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition active:scale-90" aria-label="Toggle Privacy">
+          <i id="privacyIcon" class="ph-bold ph-eye text-2xl"></i>
+        </button>
+      </section>
+
+      <!-- Category Filter Pills -->
+      <nav class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1">
+        <button onclick="setFilter('All')" class="filter-pill active-pill whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition">All</button>
+        <button onclick="setFilter('Wallet')" class="filter-pill inactive-pill whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition">Wallet</button>
+        <button onclick="setFilter('Savings')" class="filter-pill inactive-pill whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition">Savings</button>
+        <button onclick="setFilter('Credit')" class="filter-pill inactive-pill whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition">Credit</button>
+        <button onclick="setFilter('Loans')" class="filter-pill inactive-pill whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition">Loans</button>
+        <button onclick="setFilter('Investment')" class="filter-pill inactive-pill whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition">Investments</button>
+        <button onclick="setFilter('Asset')" class="filter-pill inactive-pill whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition">Assets</button>
+        
+        <button onclick="openAccountModal()" class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-700 shadow-sm border border-gray-200 shrink-0 hover:bg-gray-100" title="Add Account">
+          <i class="ph-bold ph-plus text-xs"></i>
+        </button>
+      </nav>
+
+      <!-- Grid of 2-Column Accounts -->
+      <section id="accountsGrid" class="grid grid-cols-2 gap-3 pt-1">
+        <!-- Rendered by JavaScript dynamically -->
+      </section>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="hidden text-center py-12 px-4">
+        <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400">
+          <i class="ph-bold ph-wallet text-2xl"></i>
+        </div>
+        <p class="text-sm font-semibold text-gray-600">No accounts in this category</p>
+        <button onclick="openAccountModal()" class="mt-3 text-xs bg-black text-white px-4 py-2 rounded-xl font-bold shadow hover:bg-gray-800">
+          + Add New Account
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN VIEW 2: Daily Expenses Section (Defaults to Active on Open) -->
+    <div id="expensesViewSection" class="px-4 py-2 space-y-4 flex-grow">
+      
+      <!-- Expense Summary Card with View Switcher -->
+      <section class="bg-white rounded-3xl p-5 shadow-card border border-gray-100">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider">This Month's Spending</h2>
+            <p id="totalMonthlyExpense" class="text-2xl font-extrabold text-gray-900 mt-0.5 tracking-tight">₱0.00</p>
+            <p id="expenseSubtitleDate" class="text-[11px] text-gray-400 font-medium">Recorded expenses</p>
+          </div>
+          <!-- 2-View Mode Buttons (Timeline vs Calendar) -->
+          <div class="inline-flex bg-gray-100 p-1 rounded-xl">
+            <button id="viewBtnTimeline" onclick="setExpenseSubView('timeline')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-gray-900 shadow-xs flex items-center gap-1 transition">
+              <i class="ph-bold ph-list-dashes"></i> Timeline
+            </button>
+            <button id="viewBtnCalendar" onclick="setExpenseSubView('calendar')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-800 flex items-center gap-1 transition">
+              <i class="ph-bold ph-calendar-blank"></i> Calendar
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Today's spend meter -->
+        <div class="pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
+          <span class="text-gray-500 font-medium">Spent Today:</span>
+          <span id="spentTodayText" class="font-extrabold text-rose-600">₱0.00</span>
+        </div>
+      </section>
+
+      <!-- VIEW MODE A: Timeline / Grouped Daily List View -->
+      <div id="expenseTimelineView" class="space-y-4">
+        <div id="expenseTimelineContainer" class="space-y-4">
+          <!-- Dynamically populated daily expenses -->
+        </div>
+      </div>
+
+      <!-- VIEW MODE B: Calendar Heatmap Grid View -->
+      <div id="expenseCalendarView" class="hidden bg-white rounded-3xl p-4 shadow-card border border-gray-100">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <button onclick="navigateMonth(-1)" class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-600 hover:bg-gray-100">
+            <i class="ph-bold ph-caret-left"></i>
+          </button>
+          <span id="calendarMonthLabel" class="text-sm font-bold text-gray-800">Month Year</span>
+          <button onclick="navigateMonth(1)" class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-600 hover:bg-gray-100">
+            <i class="ph-bold ph-caret-right"></i>
+          </button>
+        </div>
+
+        <!-- Weekday header -->
+        <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-gray-400 uppercase py-1">
+          <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
+
+        <!-- Days Grid -->
+        <div id="calendarGrid" class="grid grid-cols-7 gap-1.5 pt-1">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Selected Day Details Breakdown -->
+        <div id="calendarSelectedDayBreakdown" class="mt-4 pt-3 border-t border-gray-100">
+          <div class="flex justify-between items-center mb-2">
+            <span id="selectedDayLabel" class="text-xs font-bold text-gray-700">Selected Day Expenses</span>
+            <span id="selectedDayTotal" class="text-xs font-extrabold text-rose-600">₱0.00</span>
+          </div>
+          <div id="selectedDayExpenseList" class="space-y-2 max-h-48 overflow-y-auto">
+            <!-- Day details list -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Floating Action Button at Bottom -->
+    <div class="fixed md:absolute bottom-5 left-0 right-0 px-6 flex justify-center pointer-events-none z-10">
+      <button id="mainFloatingActionBtn" onclick="handleFabClick()" class="pointer-events-auto bg-[#1A1A1A] text-white shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 rounded-full py-3.5 px-6 flex items-center space-x-2 text-sm font-bold border border-neutral-700">
+        <i id="fabIcon" class="ph-bold ph-plus-circle text-lg"></i>
+        <span id="fabText">Record Daily Expense</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- ==================== MODAL: ADD EXPENSE (WITH AUTOMATIC DATE) ==================== -->
+  <div id="expenseModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
+    <div class="bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Add Daily Expense</h3>
+          <p class="text-xs text-gray-500">Automatically stamps today's date & time</p>
+        </div>
+        <button onclick="closeExpenseModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800">
+          <i class="ph-bold ph-x text-sm"></i>
+        </button>
+      </div>
+
+      <form id="expenseForm" onsubmit="handleExpenseFormSubmit(event)" class="space-y-4">
+        
+        <!-- Automatic Date/Time Stamp indicator (No manual picker needed) -->
+        <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
+              <i class="ph-bold ph-clock"></i>
+            </div>
+            <div>
+              <p class="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Date & Timestamp</p>
+              <p id="autoDatePreview" class="text-xs font-extrabold text-emerald-950">Today</p>
+            </div>
+          </div>
+          <span class="text-[10px] font-bold bg-white text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+            Automatic
+          </span>
+        </div>
+
+        <!-- Amount -->
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Expense Amount</label>
+          <div class="relative">
+            <span class="currency-symbol absolute left-3 top-2.5 text-base font-bold text-gray-500">₱</span>
+            <input type="number" step="any" id="expenseAmount" required placeholder="0.00" class="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-3 py-2.5 text-base font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-black">
+          </div>
+        </div>
+
+        <!-- Expense Title / Merchant -->
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Expense Title / Merchant</label>
+          <input type="text" id="expenseTitle" required placeholder="e.g. Grocery, Jollibee, Grab, Electricity" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black">
+        </div>
+
+        <!-- Category & Icon -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Category</label>
+            <select id="expenseCategory" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black">
+              <option value="Food & Dining">🍔 Food & Dining</option>
+              <option value="Groceries">🛒 Groceries</option>
+              <option value="Transportation">🚗 Transportation</option>
+              <option value="Bills & Utilities">💡 Bills & Utilities</option>
+              <option value="Shopping">🛍️ Shopping</option>
+              <option value="Entertainment">🎬 Entertainment</option>
+              <option value="Health">💊 Health</option>
+              <option value="Other">📦 Other</option>
+            </select>
+          </div>
+
+          <!-- Paid From Account -->
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Paid From</label>
+            <select id="expenseAccountSelect" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black">
+              <!-- Dynamically populated from accounts -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Deduct Checkbox -->
+        <div class="flex items-center space-x-2 pt-1">
+          <input type="checkbox" id="deductFromAccountCheck" checked class="w-4 h-4 rounded text-black focus:ring-black accent-black">
+          <label for="deductFromAccountCheck" class="text-xs font-medium text-gray-700 cursor-pointer">
+            Automatically deduct amount from the selected account
+          </label>
+        </div>
+
+        <div class="pt-2">
+          <button type="submit" class="w-full bg-black text-white py-3 rounded-2xl font-bold text-sm hover:bg-neutral-800 transition active:scale-[0.98]">
+            Save Expense
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: ADD / EDIT ACCOUNT ==================== -->
+  <div id="accountModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
+    <div class="bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 id="modalTitle" class="text-lg font-bold text-gray-900">Add Account / Pot</h3>
+          <p class="text-xs text-gray-500">Configure bank, wallet, or asset card</p>
+        </div>
+        <button onclick="closeAccountModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800">
+          <i class="ph-bold ph-x text-sm"></i>
+        </button>
+      </div>
+
+      <form id="accountForm" onsubmit="handleAccountFormSubmit(event)" class="space-y-4">
+        <input type="hidden" id="editAccountId" value="">
+
+        <!-- Badge & Preset Selector -->
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1.5">Brand / Institution Preset</label>
+          <div class="flex items-center space-x-3 mb-3">
+            <div id="modalBadgePreview" class="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm uppercase shadow-sm transition">
+              GO
+            </div>
+            <select id="brandPreset" onchange="applyPreset(this.value)" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black">
+              <option value="gotyme">GoTyme Bank (GO)</option>
+              <option value="bdo">BDO Unibank (BDO)</option>
+              <option value="bpi">BPI (Bank of the PI)</option>
+              <option value="mp2">Pag-IBIG MP2</option>
+              <option value="maya">Maya / PayMaya</option>
+              <option value="gcash">GCash / GInvest</option>
+              <option value="gold">Gold / Physical Asset (💍)</option>
+              <option value="crypto">Crypto Wallet</option>
+              <option value="metrobank">Metrobank</option>
+              <option value="citi">Credit Card</option>
+              <option value="custom">Custom Badge</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-gray-500 mb-1">Badge Text / Emoji</label>
+              <input type="text" id="badgeText" maxlength="6" oninput="updateBadgePreview()" placeholder="GO" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-gray-500 mb-1">Badge Color</label>
+              <input type="color" id="badgeColorPicker" oninput="updateBadgePreview()" value="#02D6DE" class="w-full h-9 bg-gray-50 border border-gray-200 rounded-xl px-1 py-1 cursor-pointer">
+            </div>
+          </div>
+        </div>
+
+        <!-- Account Name -->
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Account / Fund Name</label>
+          <input type="text" id="accountName" required placeholder="e.g. Emergency Fund, Maya Savings" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black">
+        </div>
+
+        <!-- Current Balance -->
+        <div>
+          <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Current Balance</label>
+          <div class="relative">
+            <span class="currency-symbol absolute left-3 top-2.5 text-base font-bold text-gray-500">₱</span>
+            <input type="number" step="any" id="accountBalance" required placeholder="0.00" class="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-3 py-2.5 text-base font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-black">
+          </div>
+        </div>
+
+        <!-- Category & Subtitle -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Category</label>
+            <select id="accountCategory" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black">
+              <option value="Savings">Savings</option>
+              <option value="Wallet">Wallet</option>
+              <option value="Investment">Investment</option>
+              <option value="Asset">Asset</option>
+              <option value="Credit">Credit Card (Liability)</option>
+              <option value="Loans">Loan / Debt</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Subtitle Tag</label>
+            <input type="text" id="accountSubtitle" placeholder="e.g. Wallet, MP2 Savings" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-black">
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="pt-3 space-y-2">
+          <button type="submit" class="w-full bg-black text-white py-3 rounded-2xl font-bold text-sm hover:bg-neutral-800 transition active:scale-[0.98]">
+            Save Account
+          </button>
+          <button type="button" id="deleteAccountBtn" onclick="deleteCurrentAccount()" class="w-full hidden bg-rose-50 text-rose-600 py-2.5 rounded-2xl font-bold text-xs hover:bg-rose-100 transition">
+            Delete Account
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: SALARY BUDGET PLANNER ==================== -->
+  <div id="salaryModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
+    <div class="bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Salary Budget Allocator</h3>
+          <p class="text-xs text-gray-500">Distribute your monthly salary to your accounts</p>
+        </div>
+        <button onclick="closeSalaryModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800">
+          <i class="ph-bold ph-x text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Monthly Paycheck Input -->
+      <div class="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-4">
+        <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Monthly Net Salary / Paycheck</label>
+        <div class="relative">
+          <span class="currency-symbol absolute left-3 top-2.5 text-base font-bold text-gray-500">₱</span>
+          <input type="number" id="monthlySalaryInput" oninput="calculateSalaryAllocation()" placeholder="0.00" class="w-full bg-white border border-gray-200 rounded-xl pl-8 pr-3 py-2 text-lg font-extrabold text-gray-900 focus:outline-none focus:ring-2 focus:ring-black">
+        </div>
+      </div>
+
+      <!-- Quick Rule Shortcuts -->
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-bold text-gray-500 uppercase">Allocation Scheme</span>
+        <button type="button" onclick="applyPresetBudgetRule(50, 30, 20)" class="text-xs font-bold text-blue-600 hover:underline">
+          50/30/20 Rule
+        </button>
+      </div>
+
+      <!-- Accounts allocation list -->
+      <div id="salaryAllocationsList" class="space-y-3 mb-5 max-h-60 overflow-y-auto pr-1">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Allocation Progress Bar -->
+      <div class="bg-gray-100 rounded-2xl p-4 mb-4">
+        <div class="flex justify-between text-xs font-bold mb-1.5">
+          <span class="text-gray-600">Total Allocated:</span>
+          <span id="allocationPercentageText" class="text-gray-900">0%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+          <div id="allocationProgressBar" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between text-[11px] font-semibold text-gray-500 mt-2">
+          <span>Remaining to budget:</span>
+          <span id="remainingBudgetAmount" class="font-bold text-gray-700">₱0.00</span>
+        </div>
+      </div>
+
+      <div class="flex space-x-3">
+        <button type="button" onclick="saveSalaryBudget()" class="w-full bg-black text-white py-3 rounded-2xl font-bold text-sm hover:bg-neutral-800 transition">
+          Save Budget Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: BACKUP / RESTORE / GITHUB READY ==================== -->
+  <div id="backupModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
+    <div class="bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Data & Sync (Local)</h3>
+          <p class="text-xs text-gray-500">100% private. All information stays on your device.</p>
+        </div>
+        <button onclick="closeBackupModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800">
+          <i class="ph-bold ph-x text-sm"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Export Button -->
+        <div class="border border-gray-200 rounded-2xl p-4 flex items-center justify-between hover:bg-gray-50 transition">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-green-50 text-green-600 flex items-center justify-center">
+              <i class="ph-bold ph-download-simple text-lg"></i>
+            </div>
+            <div>
+              <p class="text-sm font-bold text-gray-800">Export Backup</p>
+              <p class="text-xs text-gray-500">Download data as a JSON file</p>
+            </div>
+          </div>
+          <button onclick="exportDataJSON()" class="bg-gray-900 hover:bg-black text-white text-xs font-bold px-3 py-2 rounded-xl transition">
+            Export
+          </button>
+        </div>
+
+        <!-- Import Button -->
+        <div class="border border-gray-200 rounded-2xl p-4 flex items-center justify-between hover:bg-gray-50 transition">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i class="ph-bold ph-upload-simple text-lg"></i>
+            </div>
+            <div>
+              <p class="text-sm font-bold text-gray-800">Import Backup</p>
+              <p class="text-xs text-gray-500">Restore from an exported JSON</p>
+            </div>
+          </div>
+          <label class="bg-gray-900 hover:bg-black text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer transition">
+            Import
+            <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="importDataJSON(event)">
+          </label>
+        </div>
+
+        <!-- Reset to Default Sample Data -->
+        <div class="border border-red-100 bg-red-50/50 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p class="text-sm font-bold text-red-800">Reset Demo Data</p>
+            <p class="text-xs text-red-500">Reset to screenshot preview defaults</p>
+          </div>
+          <button onclick="resetToDefaults()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition">
+            Reset
+          </button>
+        </div>
+
+        <div class="p-4 bg-gray-50 rounded-2xl text-[12px] text-gray-600 space-y-1">
+          <p class="font-bold flex items-center gap-1 text-gray-800">
+            <i class="ph-fill ph-github-logo text-base"></i> GitHub Hosting Ready
+          </p>
+          <p>This single file can be uploaded straight to any GitHub repository as <code class="bg-gray-200 px-1 py-0.5 rounded text-gray-800 font-mono text-[11px]">index.html</code> and hosted for free via <strong>GitHub Pages</strong> with zero build configuration.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-black text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-2xl opacity-0 pointer-events-none transition-all duration-300">
+    Notification
+  </div>
+
+  <script>
+    /* =====================================================================
+       DEFAULT SEED DATA (Exact match to the provided screenshot image)
+       ===================================================================== */
+    const DEFAULT_ACCOUNTS = [
+      {
+        id: '1',
+        name: 'Emergency Fund',
+        subtitle: 'Wallet',
+        category: 'Wallet',
+        balance: 201095.62,
+        brandKey: 'gotyme',
+        badgeBg: '#02D6DE',
+        badgeColor: '#002B30',
+        badgeText: 'GO',
+        allocationPercent: 15
+      },
+      {
+        id: '2',
+        name: 'Emergency Fund',
+        subtitle: 'Savings',
+        category: 'Savings',
+        balance: 200514.93,
+        brandKey: 'bdo',
+        badgeBg: '#0A3B82',
+        badgeColor: '#E6A117',
+        badgeText: 'BDO',
+        allocationPercent: 15
+      },
+      {
+        id: '3',
+        name: 'Savings',
+        subtitle: 'Savings',
+        category: 'Savings',
+        balance: 105797.76,
+        brandKey: 'bpi',
+        badgeBg: '#B41920',
+        badgeColor: '#FFFFFF',
+        badgeText: 'BPI',
+        allocationPercent: 10
+      },
+      {
+        id: '4',
+        name: 'Retirement Fund',
+        subtitle: 'MP2 Savings',
+        category: 'Investment',
+        balance: 240414.30,
+        brandKey: 'mp2',
+        badgeBg: '#2A2E6E',
+        badgeColor: '#FFFFFF',
+        badgeText: 'MP2',
+        allocationPercent: 20
+      },
+      {
+        id: '5',
+        name: 'SA/TD/Personal Goal',
+        subtitle: 'Savings',
+        category: 'Savings',
+        balance: 406651.62,
+        brandKey: 'maya',
+        badgeBg: '#000000',
+        badgeColor: '#00E887',
+        badgeText: 'maya',
+        allocationPercent: 20
+      },
+      {
+        id: '6',
+        name: 'Gfund/Invest',
+        subtitle: 'Wallet',
+        category: 'Wallet',
+        balance: 350338.43,
+        brandKey: 'gcash',
+        badgeBg: '#007DFE',
+        badgeColor: '#FFFFFF',
+        badgeText: 'G',
+        allocationPercent: 10
+      },
+      {
+        id: '7',
+        name: 'Fund/Stocks/Crypto',
+        subtitle: 'Wallet',
+        category: 'Wallet',
+        balance: 496493.00,
+        brandKey: 'maya',
+        badgeBg: '#000000',
+        badgeColor: '#00E887',
+        badgeText: 'maya',
+        allocationPercent: 5
+      },
+      {
+        id: '8',
+        name: 'Gold',
+        subtitle: 'Asset',
+        category: 'Asset',
+        balance: 430000.00,
+        brandKey: 'gold',
+        badgeBg: '#D7F58F',
+        badgeColor: '#1A4D00',
+        badgeText: '💍',
+        allocationPercent: 5
+      }
+    ];
+
+    const PRESET_STYLES = {
+      gotyme: { badgeBg: '#02D6DE', badgeColor: '#002B30', badgeText: 'GO', defaultSub: 'Wallet' },
+      bdo: { badgeBg: '#0A3B82', badgeColor: '#E6A117', badgeText: 'BDO', defaultSub: 'Savings' },
+      bpi: { badgeBg: '#B41920', badgeColor: '#FFFFFF', badgeText: 'BPI', defaultSub: 'Savings' },
+      mp2: { badgeBg: '#2A2E6E', badgeColor: '#FFFFFF', badgeText: 'MP2', defaultSub: 'MP2 Savings' },
+      maya: { badgeBg: '#000000', badgeColor: '#00E887', badgeText: 'maya', defaultSub: 'Savings' },
+      gcash: { badgeBg: '#007DFE', badgeColor: '#FFFFFF', badgeText: 'G', defaultSub: 'Wallet' },
+      gold: { badgeBg: '#D7F58F', badgeColor: '#1A4D00', badgeText: '💍', defaultSub: 'Asset' },
+      crypto: { badgeBg: '#5B21B6', badgeColor: '#DDD6FE', badgeText: 'CRY', defaultSub: 'Investment' },
+      metrobank: { badgeBg: '#003399', badgeColor: '#FFFFFF', badgeText: 'MB', defaultSub: 'Savings' },
+      citi: { badgeBg: '#DC2626', badgeColor: '#FFFFFF', badgeText: 'CARD', defaultSub: 'Credit' },
+      custom: { badgeBg: '#64748B', badgeColor: '#FFFFFF', badgeText: 'ACC', defaultSub: 'Account' }
+    };
+
+    /* =====================================================================
+       APP STATE
+       ===================================================================== */
+    let accounts = [];
+    let expenses = [];
+    let currentFilter = 'All';
+    let isPrivacyOn = false;
+    let currencySymbol = '₱';
+    let currencyCode = 'PHP';
+    let monthlySalary = 60000;
+    
+    // Default active navigation tab to 'expenses' on startup as requested
+    let currentMainTab = 'expenses';
+    let expenseSubView = 'timeline'; // 'timeline' or 'calendar'
+    let calendarDate = new Date();
+    let selectedCalendarDay = new Date().toISOString().slice(0, 10);
+
+    // Local Storage keys
+    const STORAGE_KEY = 'salary_budget_networth_data_v1';
+
+    /* =====================================================================
+       INITIALIZATION
+       ===================================================================== */
+    window.onload = function() {
+      loadData();
+      switchMainTab('expenses'); // Automatically route to daily expenses on launch
+      renderAll();
+    };
+
+    function loadData() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          accounts = parsed.accounts || DEFAULT_ACCOUNTS;
+          expenses = parsed.expenses || [];
+          currencyCode = parsed.currencyCode || 'PHP';
+          currencySymbol = getCurrencySymbol(currencyCode);
+          monthlySalary = parsed.monthlySalary !== undefined ? parsed.monthlySalary : 60000;
+          document.getElementById('currencySelector').value = currencyCode;
+        } else {
+          accounts = [...DEFAULT_ACCOUNTS];
+          // Seed sample expenses if first time
+          seedDefaultExpenses();
+        }
+      } catch (err) {
+        console.error("Error loading localStorage", err);
+        accounts = [...DEFAULT_ACCOUNTS];
+        seedDefaultExpenses();
+      }
+    }
+
+    function seedDefaultExpenses() {
+      const today = new Date().toISOString().slice(0, 10);
+      expenses = [
+        {
+          id: 'exp-1',
+          title: 'Starbucks Coffee',
+          amount: 215,
+          category: 'Food & Dining',
+          accountId: '1',
+          date: today,
+          time: '08:45 AM'
+        },
+        {
+          id: 'exp-2',
+          title: 'Supermarket Groceries',
+          amount: 1450,
+          category: 'Groceries',
+          accountId: '2',
+          date: today,
+          time: '11:30 AM'
+        }
+      ];
+    }
+
+    function saveData() {
+      try {
+        const payload = {
+          accounts,
+          expenses,
+          currencyCode,
+          monthlySalary,
+          updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (err) {
+        console.error("Failed saving to localStorage", err);
+      }
+    }
+
+    function switchMainTab(tab) {
+      currentMainTab = tab;
+      const accountsSection = document.getElementById('accountsViewSection');
+      const expensesSection = document.getElementById('expensesViewSection');
+      const tabAccountsBtn = document.getElementById('navTabAccounts');
+      const tabExpensesBtn = document.getElementById('navTabExpenses');
+      const fabText = document.getElementById('fabText');
+      const fabIcon = document.getElementById('fabIcon');
+
+      if (tab === 'accounts') {
+        accountsSection.classList.remove('hidden');
+        expensesSection.classList.add('hidden');
+        
+        tabAccountsBtn.className = "py-2 rounded-xl text-xs font-bold bg-white text-gray-900 shadow-sm transition flex items-center justify-center gap-1.5";
+        tabExpensesBtn.className = "py-2 rounded-xl text-xs font-bold text-gray-600 transition flex items-center justify-center gap-1.5";
+        
+        fabText.innerText = "Add Account / Asset";
+        fabIcon.className = "ph-bold ph-plus-circle text-lg";
+      } else {
+        accountsSection.classList.add('hidden');
+        expensesSection.classList.remove('hidden');
+        
+        tabAccountsBtn.className = "py-2 rounded-xl text-xs font-bold text-gray-600 transition flex items-center justify-center gap-1.5";
+        tabExpensesBtn.className = "py-2 rounded-xl text-xs font-bold bg-white text-gray-900 shadow-sm transition flex items-center justify-center gap-1.5";
+        
+        fabText.innerText = "Record Daily Expense";
+        fabIcon.className = "ph-bold ph-plus-circle text-lg";
+      }
+    }
+
+    function handleFabClick() {
+      if (currentMainTab === 'accounts') {
+        openAccountModal();
+      } else {
+        openExpenseModal();
+      }
+    }
+
+    /* =====================================================================
+       EXPENSE SUB-VIEWS (TIMELINE vs CALENDAR)
+       ===================================================================== */
+    function setExpenseSubView(mode) {
+      expenseSubView = mode;
+      const timelineView = document.getElementById('expenseTimelineView');
+      const calendarView = document.getElementById('expenseCalendarView');
+      const btnTimeline = document.getElementById('viewBtnTimeline');
+      const btnCalendar = document.getElementById('viewBtnCalendar');
+
+      if (mode === 'timeline') {
+        timelineView.classList.remove('hidden');
+        calendarView.classList.add('hidden');
+        btnTimeline.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-gray-900 shadow-xs flex items-center gap-1 transition";
+        btnCalendar.className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-800 flex items-center gap-1 transition";
+      } else {
+        timelineView.classList.add('hidden');
+        calendarView.classList.remove('hidden');
+        btnCalendar.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-gray-900 shadow-xs flex items-center gap-1 transition";
+        btnTimeline.className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-800 flex items-center gap-1 transition";
+        renderCalendar();
+      }
+    }
+
+    function renderExpenseSummary() {
+      const now = new Date();
+      const currentYearMonth = now.toISOString().slice(0, 7);
+      const todayStr = now.toISOString().slice(0, 10);
+
+      let monthlyTotal = 0;
+      let todayTotal = 0;
+
+      expenses.forEach(e => {
+        const val = Number(e.amount) || 0;
+        if (e.date && e.date.startsWith(currentYearMonth)) {
+          monthlyTotal += val;
+        }
+        if (e.date === todayStr) {
+          todayTotal += val;
+        }
+      });
+
+      document.getElementById('totalMonthlyExpense').innerText = formatCurrency(monthlyTotal);
+      document.getElementById('spentTodayText').innerText = formatCurrency(todayTotal);
+      
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      document.getElementById('expenseSubtitleDate').innerText = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+    }
+
+    function renderTimeline() {
+      const container = document.getElementById('expenseTimelineContainer');
+      container.innerHTML = '';
+
+      if (expenses.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 bg-white rounded-3xl p-6 border border-gray-100 shadow-card">
+            <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-2 text-xl">
+              <i class="ph-bold ph-receipt"></i>
+            </div>
+            <p class="text-xs font-bold text-gray-700">No expenses recorded yet</p>
+            <p class="text-[11px] text-gray-400 mt-0.5">Tap "Record Daily Expense" below</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Group expenses by date descending
+      const grouped = {};
+      const sorted = [...expenses].sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')) - new Date(a.date + ' ' + (a.time || '00:00')));
+
+      sorted.forEach(exp => {
+        if (!grouped[exp.date]) grouped[exp.date] = [];
+        grouped[exp.date].push(exp);
+      });
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+
+      for (const [dateStr, items] of Object.entries(grouped)) {
+        let dateHeading = dateStr;
+        if (dateStr === todayStr) dateHeading = 'Today';
+        else if (dateStr === yesterdayStr) dateHeading = 'Yesterday';
+        else {
+          const d = new Date(dateStr + 'T00:00:00');
+          dateHeading = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' });
+        }
+
+        const dayTotal = items.reduce((sum, item) => sum + Number(item.amount), 0);
+
+        const groupEl = document.createElement('div');
+        groupEl.className = "bg-white rounded-3xl p-4 shadow-card border border-gray-100";
+        
+        let itemsHtml = items.map(item => {
+          const account = accounts.find(a => a.id === item.accountId);
+          const badgeText = account ? account.badgeText : 'ACC';
+          const badgeBg = account ? account.badgeBg : '#E2E8F0';
+          const badgeColor = account ? account.badgeColor : '#1E293B';
+          const accName = account ? account.name : 'Cash';
+
+          return `
+            <div class="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-none group">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0" style="background-color: ${badgeBg}; color: ${badgeColor};">
+                  ${escapeHtml(badgeText)}
+                </div>
+                <div class="truncate">
+                  <p class="text-xs font-bold text-gray-800 truncate">${escapeHtml(item.title)}</p>
+                  <p class="text-[10px] text-gray-400 flex items-center gap-1.5">
+                    <span>${escapeHtml(item.category)}</span>
+                    <span>•</span>
+                    <span>${escapeHtml(accName)}</span>
+                    <span>•</span>
+                    <span>${escapeHtml(item.time || '')}</span>
+                  </p>
+                </div>
+              </div>
+              <div class="text-right flex items-center space-x-2 shrink-0">
+                <span class="text-xs font-extrabold text-rose-600 ${isPrivacyOn ? 'masked-value' : ''}">
+                  -${formatCurrency(item.amount)}
+                </span>
+                <button onclick="deleteExpense('${item.id}')" class="text-gray-300 hover:text-rose-500 p-1 opacity-0 group-hover:opacity-100 transition">
+                  <i class="ph-bold ph-trash text-xs"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        groupEl.innerHTML = `
+          <div class="flex justify-between items-center pb-2 border-b border-gray-100 mb-1">
+            <span class="text-xs font-bold text-gray-800">${dateHeading}</span>
+            <span class="text-xs font-black text-gray-900 ${isPrivacyOn ? 'masked-value' : ''}">${formatCurrency(dayTotal)}</span>
+          </div>
+          <div class="divide-y divide-gray-50">
+            ${itemsHtml}
+          </div>
+        `;
+        container.appendChild(groupEl);
+      }
+    }
+
+    /* =====================================================================
+       CALENDAR VIEW & HEATMAP
+       ===================================================================== */
+    function navigateMonth(offset) {
+      calendarDate.setMonth(calendarDate.getMonth() + offset);
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const year = calendarDate.getFullYear();
+      const month = calendarDate.getMonth();
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      
+      document.getElementById('calendarMonthLabel').innerText = `${monthNames[month]} ${year}`;
+
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+
+      const firstDayIndex = new Date(year, month, 1).getDay();
+      const totalDays = new Date(year, month + 1, 0).getDate();
+
+      // Empty lead-in days
+      for (let i = 0; i < firstDayIndex; i++) {
+        const blank = document.createElement('div');
+        blank.className = "h-11 rounded-xl bg-transparent";
+        grid.appendChild(blank);
+      }
+
+      // Map daily expense totals
+      const dailyTotals = {};
+      expenses.forEach(e => {
+        if (!e.date) return;
+        dailyTotals[e.date] = (dailyTotals[e.date] || 0) + Number(e.amount);
+      });
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const daySpend = dailyTotals[dayStr] || 0;
+
+        const cell = document.createElement('button');
+        cell.onclick = () => selectCalendarDay(dayStr);
+        
+        let heatBg = 'bg-gray-50 text-gray-700 hover:bg-gray-100';
+        if (daySpend > 5000) heatBg = 'bg-rose-200 text-rose-900 font-extrabold';
+        else if (daySpend > 2000) heatBg = 'bg-rose-100 text-rose-800 font-bold';
+        else if (daySpend > 0) heatBg = 'bg-rose-50 text-rose-700 font-semibold';
+
+        const isSelected = selectedCalendarDay === dayStr;
+        const ringClass = isSelected ? 'ring-2 ring-black' : '';
+
+        cell.className = `h-11 rounded-xl flex flex-col items-center justify-center p-0.5 text-xs transition active:scale-95 ${heatBg} ${ringClass}`;
+        cell.innerHTML = `
+          <span class="text-[11px] leading-tight">${day}</span>
+          ${daySpend > 0 ? `<span class="text-[8px] tracking-tighter opacity-80 leading-none ${isPrivacyOn ? 'masked-value' : ''}">₱${Math.round(daySpend)}</span>` : ''}
+        `;
+        grid.appendChild(cell);
+      }
+
+      renderSelectedDayExpenses();
+    }
+
+    function selectCalendarDay(dateStr) {
+      selectedCalendarDay = dateStr;
+      renderCalendar();
+    }
+
+    function renderSelectedDayExpenses() {
+      const listEl = document.getElementById('selectedDayExpenseList');
+      const labelEl = document.getElementById('selectedDayLabel');
+      const totalEl = document.getElementById('selectedDayTotal');
+      listEl.innerHTML = '';
+
+      const dayExpenses = expenses.filter(e => e.date === selectedCalendarDay);
+      labelEl.innerText = `Expenses on ${selectedCalendarDay}`;
+
+      const total = dayExpenses.reduce((sum, item) => sum + Number(item.amount), 0);
+      totalEl.innerText = formatCurrency(total);
+
+      if (dayExpenses.length === 0) {
+        listEl.innerHTML = `<p class="text-xs text-gray-400 italic py-2">No expenses on this date</p>`;
+        return;
+      }
+
+      dayExpenses.forEach(exp => {
+        const row = document.createElement('div');
+        row.className = "flex justify-between items-center text-xs py-1.5 border-b border-gray-50";
+        row.innerHTML = `
+          <div>
+            <p class="font-bold text-gray-800">${escapeHtml(exp.title)}</p>
+            <p class="text-[10px] text-gray-400">${escapeHtml(exp.category)} • ${escapeHtml(exp.time || '')}</p>
+          </div>
+          <span class="font-extrabold text-rose-600 ${isPrivacyOn ? 'masked-value' : ''}">
+            -${formatCurrency(exp.amount)}
+          </span>
+        `;
+        listEl.appendChild(row);
+      });
+    }
+
+    /* =====================================================================
+       AUTOMATIC EXPENSE MODAL LOGIC
+       ===================================================================== */
+    function openExpenseModal() {
+      // Automatic live date & time stamp
+      const now = new Date();
+      const formattedDate = now.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+      const formattedTime = now.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+
+      document.getElementById('autoDatePreview').innerText = `${formattedDate} • ${formattedTime}`;
+      document.getElementById('expenseAmount').value = '';
+      document.getElementById('expenseTitle').value = '';
+
+      // Populate accounts dropdown
+      const select = document.getElementById('expenseAccountSelect');
+      select.innerHTML = '';
+      accounts.forEach(acc => {
+        const opt = document.createElement('option');
+        opt.value = acc.id;
+        opt.innerText = `${acc.name} (${acc.badgeText || acc.subtitle || acc.category})`;
+        select.appendChild(opt);
+      });
+
+      document.getElementById('expenseModal').classList.remove('hidden');
+    }
+
+    function closeExpenseModal() {
+      document.getElementById('expenseModal').classList.add('hidden');
+    }
+
+    function handleExpenseFormSubmit(e) {
+      e.preventDefault();
+      const amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+      const title = document.getElementById('expenseTitle').value.trim();
+      const category = document.getElementById('expenseCategory').value;
+      const accountId = document.getElementById('expenseAccountSelect').value;
+      const shouldDeduct = document.getElementById('deductFromAccountCheck').checked;
+
+      const now = new Date();
+      const autoDate = now.toISOString().slice(0, 10); // YYYY-MM-DD
+      const autoTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+      const newExpense = {
+        id: 'exp-' + Date.now(),
+        title,
+        amount,
+        category,
+        accountId,
+        date: autoDate,
+        time: autoTime
+      };
+
+      expenses.unshift(newExpense);
+
+      // Deduct from account balance if opted
+      if (shouldDeduct && accountId) {
+        const acc = accounts.find(a => a.id === accountId);
+        if (acc) {
+          acc.balance = Math.max(0, Number(acc.balance) - amount);
+        }
+      }
+
+      saveData();
+      renderAll();
+      closeExpenseModal();
+      showToast('Daily expense recorded automatically');
+    }
+
+    function deleteExpense(id) {
+      expenses = expenses.filter(e => e.id !== id);
+      saveData();
+      renderAll();
+      showToast('Expense removed');
+    }
+
+    /* =====================================================================
+       CURRENCY HELPERS
+       ===================================================================== */
+    function getCurrencySymbol(code) {
+      const symbols = {
+        'PHP': '₱',
+        'USD': '$',
+        'EUR': '€',
+        'GBP': '£',
+        'JPY': '¥',
+        'SGD': 'S$'
+      };
+      return symbols[code] || '₱';
+    }
+
+    function changeCurrency(newCode) {
+      currencyCode = newCode;
+      currencySymbol = getCurrencySymbol(newCode);
+      const symbolEls = document.querySelectorAll('.currency-symbol');
+      symbolEls.forEach(el => el.innerText = currencySymbol);
+      saveData();
+      renderAll();
+    }
+
+    /* =====================================================================
+       FORMATTING HELPERS
+       ===================================================================== */
+    function formatCurrency(amount) {
+      if (isPrivacyOn) {
+        return '••••••••';
+      }
+      return currencySymbol + Number(amount).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    /* =====================================================================
+       RENDER LOGIC
+       ===================================================================== */
+    function renderAll() {
+      renderSummary();
+      renderGrid();
+      updatePillStyles();
+      renderExpenseSummary();
+      renderTimeline();
+      if (expenseSubView === 'calendar') {
+        renderCalendar();
+      }
+    }
+
+    function renderSummary() {
+      // Calculate total: Assets + Savings + Wallets + Investments - Loans - Credit
+      let total = 0;
+      let count = 0;
+
+      accounts.forEach(acc => {
+        count++;
+        const val = Number(acc.balance) || 0;
+        if (acc.category === 'Credit' || acc.category === 'Loans') {
+          total -= val;
+        } else {
+          total += val;
+        }
+      });
+
+      const totalEl = document.getElementById('totalBalance');
+      totalEl.innerText = formatCurrency(total);
+      
+      if (isPrivacyOn) {
+        totalEl.classList.add('masked-value');
+      } else {
+        totalEl.classList.remove('masked-value');
+      }
+
+      document.getElementById('totalAssetsCount').innerText = `${count} accounts & pots tracked`;
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('accountsGrid');
+      const emptyState = document.getElementById('emptyState');
+      grid.innerHTML = '';
+
+      const filtered = accounts.filter(acc => {
+        if (currentFilter === 'All') return true;
+        return acc.category.toLowerCase() === currentFilter.toLowerCase();
+      });
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+        grid.classList.add('hidden');
+        return;
+      } else {
+        emptyState.classList.add('hidden');
+        grid.classList.remove('hidden');
+      }
+
+      filtered.forEach(acc => {
+        const card = document.createElement('div');
+        card.className = "account-card bg-white rounded-3xl p-4 shadow-card border border-gray-100 flex flex-col justify-between cursor-pointer relative group select-none";
+        card.onclick = () => openEditAccountModal(acc.id);
+
+        // Logo/Badge HTML construction
+        let badgeHtml = '';
+        if (acc.badgeText === '💍') {
+          badgeHtml = `
+            <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shadow-xs" style="background-color: ${acc.badgeBg}">
+              💍
+            </div>
+          `;
+        } else if (acc.brandKey === 'mp2') {
+          badgeHtml = `
+            <div class="w-10 h-10 rounded-2xl flex flex-col items-center justify-center shadow-xs text-white" style="background-color: ${acc.badgeBg}">
+              <span class="text-[11px] font-black leading-tight tracking-tighter">MP2</span>
+              <span class="text-[7px] font-bold uppercase tracking-wider text-yellow-300 -mt-0.5">Savings</span>
+            </div>
+          `;
+        } else {
+          badgeHtml = `
+            <div class="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs tracking-tight shadow-xs uppercase" style="background-color: ${acc.badgeBg}; color: ${acc.badgeColor}">
+              ${escapeHtml(acc.badgeText || 'ACC')}
+            </div>
+          `;
+        }
+
+        const isLiability = acc.category === 'Credit' || acc.category === 'Loans';
+        const balanceColor = isLiability ? 'text-rose-600' : 'text-gray-900';
+        const formattedAmount = (isLiability ? '-' : '') + formatCurrency(acc.balance);
+
+        card.innerHTML = `
+          <div>
+            <!-- Top brand & name block matching the screenshot layout -->
+            <div class="flex items-start space-x-2.5">
+              ${badgeHtml}
+              <div class="flex-1 min-w-0 pt-0.5">
+                <h4 class="text-xs font-semibold text-gray-700 leading-snug line-clamp-2">
+                  ${escapeHtml(acc.name)}
+                </h4>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Amount & Subtitle Tag -->
+          <div class="mt-7">
+            <p class="text-[17px] sm:text-[18px] font-extrabold ${balanceColor} tracking-tight leading-none ${isPrivacyOn ? 'masked-value' : ''}">
+              ${formattedAmount}
+            </p>
+            <p class="text-[11px] font-medium text-gray-400 mt-1 capitalize truncate">
+              ${escapeHtml(acc.subtitle || acc.category)}
+            </p>
+          </div>
+
+          <!-- Subtle hover quick-edit icon -->
+          <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-gray-600">
+            <i class="ph-bold ph-pencil-simple text-xs"></i>
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+    }
+
+    /* =====================================================================
+       PRIVACY EYE TOGGLE
+       ===================================================================== */
+    function togglePrivacy() {
+      isPrivacyOn = !isPrivacyOn;
+      const icon = document.getElementById('privacyIcon');
+      if (isPrivacyOn) {
+        icon.className = 'ph-bold ph-eye-slash text-2xl text-gray-600';
+      } else {
+        icon.className = 'ph-bold ph-eye text-2xl text-gray-400';
+      }
+      renderAll();
+    }
+
+    /* =====================================================================
+       FILTER PILLS
+       ===================================================================== */
+    function setFilter(filter) {
+      currentFilter = filter;
+      renderAll();
+    }
+
+    function updatePillStyles() {
+      const pills = document.querySelectorAll('.filter-pill');
+      pills.forEach(btn => {
+        if (btn.innerText.trim().toLowerCase() === currentFilter.toLowerCase()) {
+          btn.className = "filter-pill bg-black text-white whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition shadow-sm";
+        } else {
+          btn.className = "filter-pill bg-white text-gray-700 border border-gray-200 whitespace-nowrap px-4 py-2 rounded-full text-xs font-semibold transition hover:bg-gray-100";
+        }
+      });
+    }
+
+    /* =====================================================================
+       ACCOUNT MODAL & CRUD
+       ===================================================================== */
+    function openAccountModal() {
+      document.getElementById('modalTitle').innerText = 'Add Account / Pot';
+      document.getElementById('editAccountId').value = '';
+      document.getElementById('accountName').value = '';
+      document.getElementById('accountBalance').value = '';
+      document.getElementById('accountCategory').value = 'Savings';
+      document.getElementById('accountSubtitle').value = 'Savings';
+      document.getElementById('brandPreset').value = 'gotyme';
+      applyPreset('gotyme');
+      document.getElementById('deleteAccountBtn').classList.add('hidden');
+
+      document.getElementById('accountModal').classList.remove('hidden');
+    }
+
+    function openEditAccountModal(id) {
+      const acc = accounts.find(a => a.id === id);
+      if (!acc) return;
+
+      document.getElementById('modalTitle').innerText = 'Edit Account';
+      document.getElementById('editAccountId').value = acc.id;
+      document.getElementById('accountName').value = acc.name;
+      document.getElementById('accountBalance').value = acc.balance;
+      document.getElementById('accountCategory').value = acc.category;
+      document.getElementById('accountSubtitle').value = acc.subtitle || '';
+      
+      const presetSelect = document.getElementById('brandPreset');
+      presetSelect.value = acc.brandKey || 'custom';
+      
+      document.getElementById('badgeColorPicker').value = acc.badgeBg;
+      document.getElementById('badgeText').value = acc.badgeText;
+      updateBadgePreview();
+
+      document.getElementById('deleteAccountBtn').classList.remove('hidden');
+      document.getElementById('accountModal').classList.remove('hidden');
+    }
+
+    function closeAccountModal() {
+      document.getElementById('accountModal').classList.add('hidden');
+    }
+
+    function applyPreset(key) {
+      const p = PRESET_STYLES[key] || PRESET_STYLES.custom;
+      document.getElementById('badgeColorPicker').value = p.badgeBg;
+      document.getElementById('badgeText').value = p.badgeText;
+      
+      // If adding new, optionally prefill subtitle
+      const subtitleField = document.getElementById('accountSubtitle');
+      if (!document.getElementById('editAccountId').value) {
+        subtitleField.value = p.defaultSub;
+      }
+      updateBadgePreview();
+    }
+
+    function updateBadgePreview() {
+      const bg = document.getElementById('badgeColorPicker').value;
+      const text = document.getElementById('badgeText').value || 'ACC';
+      const preview = document.getElementById('modalBadgePreview');
+      preview.style.backgroundColor = bg;
+      preview.innerText = text;
+
+      // Smart badge font color calculation
+      const r = parseInt(bg.substr(1,2),16);
+      const g = parseInt(bg.substr(3,2),16);
+      const b = parseInt(bg.substr(5,2),16);
+      const yiq = ((r*299)+(g*587)+(b*114))/1000;
+      preview.style.color = (yiq >= 140) ? '#000000' : '#FFFFFF';
+    }
+
+    function handleAccountFormSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('editAccountId').value;
+      const name = document.getElementById('accountName').value.trim();
+      const balance = parseFloat(document.getElementById('accountBalance').value) || 0;
+      const category = document.getElementById('accountCategory').value;
+      const subtitle = document.getElementById('accountSubtitle').value.trim() || category;
+      const brandKey = document.getElementById('brandPreset').value;
+      const badgeBg = document.getElementById('badgeColorPicker').value;
+      const badgeText = document.getElementById('badgeText').value.trim() || 'ACC';
+
+      // Contrast color for badge text
+      const r = parseInt(badgeBg.substr(1,2),16);
+      const g = parseInt(badgeBg.substr(3,2),16);
+      const b = parseInt(badgeBg.substr(5,2),16);
+      const yiq = ((r*299)+(g*587)+(b*114))/1000;
+      const badgeColor = (yiq >= 140) ? '#000000' : '#FFFFFF';
+
+      if (id) {
+        // Edit existing
+        const index = accounts.findIndex(a => a.id === id);
+        if (index !== -1) {
+          accounts[index] = {
+            ...accounts[index],
+            name,
+            balance,
+            category,
+            subtitle,
+            brandKey,
+            badgeBg,
+            badgeColor,
+            badgeText
+          };
+          showToast('Account updated');
+        }
+      } else {
+        // Create new
+        const newAcc = {
+          id: Date.now().toString(),
+          name,
+          balance,
+          category,
+          subtitle,
+          brandKey,
+          badgeBg,
+          badgeColor,
+          badgeText,
+          allocationPercent: 10
+        };
+        accounts.push(newAcc);
+        showToast('Account created');
+      }
+
+      saveData();
+      renderAll();
+      closeAccountModal();
+    }
+
+    function deleteCurrentAccount() {
+      const id = document.getElementById('editAccountId').value;
+      if (!id) return;
+
+      // Note: We avoid browser native confirm() and perform smooth safe delete
+      accounts = accounts.filter(a => a.id !== id);
+      saveData();
+      renderAll();
+      closeAccountModal();
+      showToast('Account removed');
+    }
+
+    /* =====================================================================
+       SALARY BUDGET PLANNER LOGIC
+       ===================================================================== */
+    function openSalaryModal() {
+      document.getElementById('monthlySalaryInput').value = monthlySalary || 0;
+      renderSalaryAllocations();
+      calculateSalaryAllocation();
+      document.getElementById('salaryModal').classList.remove('hidden');
+    }
+
+    function closeSalaryModal() {
+      document.getElementById('salaryModal').classList.add('hidden');
+    }
+
+    function renderSalaryAllocations() {
+      const list = document.getElementById('salaryAllocationsList');
+      list.innerHTML = '';
+
+      accounts.forEach(acc => {
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-100";
+        row.innerHTML = `
+          <div class="flex items-center space-x-2.5 flex-1 min-w-0 pr-2">
+            <div class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[10px]" style="background-color: ${acc.badgeBg}; color: ${acc.badgeColor}">
+              ${escapeHtml(acc.badgeText || 'A')}
+            </div>
+            <div class="truncate">
+              <p class="text-xs font-bold text-gray-800 truncate">${escapeHtml(acc.name)}</p>
+              <p class="text-[10px] text-gray-400 capitalize">${escapeHtml(acc.subtitle || acc.category)}</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <div class="flex items-center">
+              <input type="number" min="0" max="100" data-account-id="${acc.id}" value="${acc.allocationPercent || 0}" oninput="calculateSalaryAllocation()" class="alloc-percent-input w-12 text-center bg-white border border-gray-200 rounded-lg py-1 text-xs font-bold text-gray-800 focus:outline-none focus:ring-1 focus:ring-black">
+              <span class="text-xs font-bold text-gray-500 ml-1">%</span>
+            </div>
+            <div class="text-right w-20">
+              <span id="alloc-calc-${acc.id}" class="text-xs font-bold text-gray-700">₱0.00</span>
+            </div>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    function calculateSalaryAllocation() {
+      const salary = parseFloat(document.getElementById('monthlySalaryInput').value) || 0;
+      let totalAllocPercent = 0;
+
+      const inputs = document.querySelectorAll('.alloc-percent-input');
+      inputs.forEach(input => {
+        const accId = input.dataset.accountId;
+        const percent = parseFloat(input.value) || 0;
+        totalAllocPercent += percent;
+
+        const allocatedAmount = (salary * (percent / 100));
+        const calcEl = document.getElementById(`alloc-calc-${accId}`);
+        if (calcEl) {
+          calcEl.innerText = formatPlainCurrency(allocatedAmount);
+        }
+      });
+
+      const progressBar = document.getElementById('allocationProgressBar');
+      const percentageText = document.getElementById('allocationPercentageText');
+      const remainingBudgetAmount = document.getElementById('remainingBudgetAmount');
+
+      percentageText.innerText = `${totalAllocPercent.toFixed(1)}%`;
+      progressBar.style.width = `${Math.min(totalAllocPercent, 100)}%`;
+
+      if (totalAllocPercent > 100) {
+        progressBar.className = "bg-rose-500 h-2.5 rounded-full transition-all duration-300";
+        percentageText.className = "text-rose-600 font-bold";
+      } else if (totalAllocPercent === 100) {
+        progressBar.className = "bg-emerald-500 h-2.5 rounded-full transition-all duration-300";
+        percentageText.className = "text-emerald-600 font-bold";
+      } else {
+        progressBar.className = "bg-blue-500 h-2.5 rounded-full transition-all duration-300";
+        percentageText.className = "text-gray-900 font-bold";
+      }
+
+      const remainingVal = salary - (salary * (totalAllocPercent / 100));
+      remainingBudgetAmount.innerText = formatPlainCurrency(remainingVal);
+      if (remainingVal < 0) {
+        remainingBudgetAmount.className = "font-bold text-rose-600";
+      } else {
+        remainingBudgetAmount.className = "font-bold text-gray-700";
+      }
+    }
+
+    function formatPlainCurrency(amount) {
+      return currencySymbol + Number(amount).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function applyPresetBudgetRule(needs, wants, savings) {
+      if (accounts.length === 0) return;
+      // Auto assign roughly:
+      // Savings/Investments -> savings%
+      // Wallets -> wants%
+      // Remaining -> needs%
+      const savingsAccounts = accounts.filter(a => a.category === 'Savings' || a.category === 'Investment');
+      const otherAccounts = accounts.filter(a => a.category !== 'Savings' && a.category !== 'Investment');
+
+      const savingsSplit = savingsAccounts.length ? (savings / savingsAccounts.length) : 0;
+      const othersSplit = otherAccounts.length ? ((needs + wants) / otherAccounts.length) : 0;
+
+      const inputs = document.querySelectorAll('.alloc-percent-input');
+      inputs.forEach(input => {
+        const acc = accounts.find(a => a.id === input.dataset.accountId);
+        if (acc) {
+          if (acc.category === 'Savings' || acc.category === 'Investment') {
+            input.value = Math.round(savingsSplit);
+          } else {
+            input.value = Math.round(othersSplit);
+          }
+        }
+      });
+      calculateSalaryAllocation();
+    }
+
+    function saveSalaryBudget() {
+      monthlySalary = parseFloat(document.getElementById('monthlySalaryInput').value) || 0;
+
+      const inputs = document.querySelectorAll('.alloc-percent-input');
+      inputs.forEach(input => {
+        const accId = input.dataset.accountId;
+        const percent = parseFloat(input.value) || 0;
+        const acc = accounts.find(a => a.id === accId);
+        if (acc) {
+          acc.allocationPercent = percent;
+        }
+      });
+
+      saveData();
+      closeSalaryModal();
+      showToast('Salary budget plan saved');
+    }
+
+    /* =====================================================================
+       BACKUP / EXPORT / IMPORT (LOCAL PERSISTENCE)
+       ===================================================================== */
+    function openBackupModal() {
+      document.getElementById('backupModal').classList.remove('hidden');
+    }
+
+    function closeBackupModal() {
+      document.getElementById('backupModal').classList.add('hidden');
+    }
+
+    function exportDataJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+        accounts,
+        expenses,
+        currencyCode,
+        monthlySalary,
+        exportDate: new Date().toISOString()
+      }, null, 2));
+
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `budget_networth_backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('Data exported successfully');
+    }
+
+    function importDataJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (Array.isArray(parsed.accounts)) {
+            accounts = parsed.accounts;
+            expenses = Array.isArray(parsed.expenses) ? parsed.expenses : [];
+            currencyCode = parsed.currencyCode || 'PHP';
+            currencySymbol = getCurrencySymbol(currencyCode);
+            monthlySalary = parsed.monthlySalary !== undefined ? parsed.monthlySalary : 60000;
+            document.getElementById('currencySelector').value = currencyCode;
+
+            saveData();
+            renderAll();
+            closeBackupModal();
+            showToast('Backup restored successfully');
+          } else {
+            showToast('Invalid backup file format');
+          }
+        } catch (err) {
+          showToast('Failed to parse JSON file');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = ''; // reset file input
+    }
+
+    function resetToDefaults() {
+      accounts = JSON.parse(JSON.stringify(DEFAULT_ACCOUNTS));
+      expenses = [];
+      currencyCode = 'PHP';
+      currencySymbol = '₱';
+      monthlySalary = 60000;
+      document.getElementById('currencySelector').value = 'PHP';
+      saveData();
+      renderAll();
+      closeBackupModal();
+      showToast('Reset to default accounts');
+    }
+
+    /* =====================================================================
+       UI UTILITIES
+       ===================================================================== */
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2400);
+    }
+
+    function escapeHtml(string) {
+      if (!string) return '';
+      return String(string)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
